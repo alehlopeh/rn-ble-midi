@@ -2,10 +2,9 @@
 #import "RNReactNativeBleMidi.h"
 #import <UIKit/UIKit.h>
 #import <CoreAudioKit/CoreAudioKit.h>
-
-#include <CoreFoundation/CoreFoundation.h>
 #import <CoreMIDI/CoreMIDI.h>
 #import <MIKMIDI/MIKMIDI.h>
+#import <React/RCTConvert.h>
 
 
 
@@ -24,6 +23,7 @@
 {
     return dispatch_get_main_queue();
 }
+
 RCT_EXPORT_MODULE()
 
 RCT_EXPORT_METHOD(hideView) {
@@ -69,7 +69,12 @@ RCT_REMAP_METHOD(send, val:(int)val control:(int)control sendWithResolver:(RCTPr
     NSError *error = nil;
     MIKMIDIDeviceManager *dm = [MIKMIDIDeviceManager sharedDeviceManager];
     [dm sendCommands:@[tweak] toEndpoint:self.destination error:&error];
-    resolve(0);
+//    resolve(0);
+     if (error) {
+         reject(@"failed_send", @"Could not send", error);
+     } else {
+         resolve(0);
+     }
 }
 
 RCT_REMAP_METHOD(list, listWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
@@ -79,7 +84,28 @@ RCT_REMAP_METHOD(list, listWithResolver:(RCTPromiseResolveBlock)resolve rejecter
     NSLog(@"The content of virtualDestinations is%@", virtualDestinations);
     NSLog(@"The content of availableMIDIDevices is%@", availableMIDIDevices);
     self.destination = virtualDestinations.lastObject;
-    resolve(virtualDestinations);
+    NSLog(@"%@",self.destination.displayName);
+    NSLog(@"%i",self.destination.uniqueID);
+    NSLog(@"%i",self.destination.objectRef);
+    NSMutableArray *v = [[NSMutableArray alloc] init];
+    int i = 0;
+    for ( MIKMIDIDestinationEndpoint *d in virtualDestinations )
+    {
+        NSString *uid = [NSString stringWithFormat:@"%i",d.uniqueID];
+        NSString *oid = [NSString stringWithFormat:@"%i",d.objectRef];
+
+        NSDictionary *deviceInfo = @{
+                                     @"name": d.displayName,
+                                     @"uniqueID": uid,
+                                     @"objectRef": oid
+                                };
+        NSLog(@"%@",deviceInfo);
+        NSLog(@"%i",i);
+        v[i] = deviceInfo;
+        i++;
+    }
+
+    resolve(v);
 }
 
 RCT_REMAP_METHOD(connect, connectWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
@@ -89,7 +115,9 @@ RCT_REMAP_METHOD(connect, connectWithResolver:(RCTPromiseResolveBlock)resolve re
 
     [rootViewController presentViewController:viewController animated:YES completion:^{
         NSLog(@"ok");
+
         resolve(0);
+
     }];
 }
 
