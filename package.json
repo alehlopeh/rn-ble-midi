@@ -1,22 +1,17 @@
 {
-  "name": "react-native-react-native-ble-midi",
+  "name": "react-native-ble-midi",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [
-    "react-native"
-  ],
+  "keywords": [  ],
   "author": "",
   "license": "",
   "peerDependencies": {
-    "react-native": "^0.41.2",
-    "react-native-windows": "0.41.0-rc.1"
+    "react-native": "^0.41.2"
   },
   "dependencies": {
-    "npm": "^6.3.0",
-    "react-native-ble-plx": "^0.10.0"
   }
 }

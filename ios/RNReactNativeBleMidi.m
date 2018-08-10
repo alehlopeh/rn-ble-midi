@@ -9,12 +9,16 @@
 
 
 
-
-@implementation RNReactNativeBleMidi
+@interface RNReactNativeBleMidi ()
 
 @property (nonatomic, strong) MIKMIDIDeviceManager *deviceManager;
 @property (nonatomic, strong) MIKMIDIDevice    *device;
+@property (nonatomic, strong) MIKMIDIDestinationEndpoint *destination;
 @property (nonatomic, strong) id connectionToken;
+
+@end
+
+@implementation RNReactNativeBleMidi
 
 - (dispatch_queue_t)methodQueue
 {
@@ -26,16 +30,19 @@ RCT_EXPORT_METHOD(hideView) {
     UIViewController *rootViewController = [UIApplication sharedApplication].delegate.window.rootViewController;
     [rootViewController dismissViewControllerAnimated:YES completion:nil];
 }
+
 - (void)disconnectFromDevice:(MIKMIDIDevice *)device
 {
+    NSLog(@"disconnectFromDevice");
+
     if (!device) return;
     [self.deviceManager disconnectConnectionForToken:self.connectionToken];
-
-    self.textView.text = @"";
 }
 
 - (void)connectToDevice:(MIKMIDIDevice *)device
 {
+    NSLog(@"connectToDevice");
+
     if (!device) return;
     NSArray *sources = [device.entities valueForKeyPath:@"@unionOfArrays.sources"];
     if (![sources count]) return;
@@ -44,61 +51,46 @@ RCT_EXPORT_METHOD(hideView) {
 
     id connectionToken = [self.deviceManager connectInput:source error:&error eventHandler:^(MIKMIDISourceEndpoint *source, NSArray *commands) {
 
-        NSMutableString *textViewString = [self.textView.text mutableCopy];
         for (MIKMIDIChannelVoiceCommand *command in commands) {
             if ((command.commandType | 0x0F) == MIKMIDICommandTypeSystemMessage) continue;
 
             [[UIApplication sharedApplication] handleMIDICommand:command];
 
-            [textViewString appendFormat:@"Received: %@\n", command];
             NSLog(@"Received: %@", command);
         }
-        self.textView.text = textViewString;
     }];
     if (!connectionToken) NSLog(@"Unable to connect to input: %@", error);
     self.connectionToken = connectionToken;
 }
 
-
-
-RCT_REMAP_METHOD(send,
-                 connectWithResolver:(RCTPromiseResolveBlock)resolve
-                 rejecter:(RCTPromiseRejectBlock)reject
-                 )
+RCT_REMAP_METHOD(send, val:(int)val control:(int)control sendWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 {
-    NSDate *date = [NSDate date];
-    MIKMIDINoteOnCommand *noteOn = [MIKMIDINoteOnCommand noteOnCommandWithNote:60 velocity:127 channel:0 timestamp:date];
-    MIKMIDINoteOffCommand *noteOff = [MIKMIDINoteOffCommand noteOffCommandWithNote:60 velocity:0 channel:0 timestamp:[date dateByAddingTimeInterval:0.5]];
-
+    MIKMIDIControlChangeCommand *tweak = [MIKMIDIControlChangeCommand controlChangeCommandWithControllerNumber:(control) value:val ];
+    NSError *error = nil;
     MIKMIDIDeviceManager *dm = [MIKMIDIDeviceManager sharedDeviceManager];
-    [dm sendCommands:@[noteOn, noteOff] toEndpoint:destinationEndpoint error:&error];
+    [dm sendCommands:@[tweak] toEndpoint:self.destination error:&error];
+    resolve(0);
 }
 
+RCT_REMAP_METHOD(list, listWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+{
+    NSArray *availableMIDIDevices = [[MIKMIDIDeviceManager sharedDeviceManager] availableDevices];
+    NSArray *virtualDestinations = [[MIKMIDIDeviceManager sharedDeviceManager] virtualDestinations];
+    NSLog(@"The content of virtualDestinations is%@", virtualDestinations);
+    NSLog(@"The content of availableMIDIDevices is%@", availableMIDIDevices);
+    self.destination = virtualDestinations.lastObject;
+    resolve(virtualDestinations);
+}
 
-RCT_REMAP_METHOD(connect,
-                 connectWithResolver:(RCTPromiseResolveBlock)resolve
-                 rejecter:(RCTPromiseRejectBlock)reject
-                 )
+RCT_REMAP_METHOD(connect, connectWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 {
     CABTMIDILocalPeripheralViewController *viewController = [[CABTMIDILocalPeripheralViewController alloc] init];
     UIViewController *rootViewController = [UIApplication sharedApplication].delegate.window.rootViewController;
 
-
-    viewController.navigationItem.rightBarButtonItem =
-    [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
-                                                  target:self
-                                                  action:@selector(hideView:)];
-
-    rootViewController.modalPresentationStyle = UIModalPresentationPopover;
-
     [rootViewController presentViewController:viewController animated:YES completion:^{
         NSLog(@"ok");
-        [self.deviceManager connectDevice];
-
         resolve(0);
-
     }];
-
 }
 
 
